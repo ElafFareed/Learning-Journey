@@ -7,6 +7,7 @@ struct ContentView: View {
 
     @State private var activeGoal: LearningGoal?
     @State private var showEditGoal = false
+    @State private var showCalendar = false
 
     private let goalKey = "activeLearningGoal"
 
@@ -22,6 +23,10 @@ struct ContentView: View {
 
                     ActivityView(
                         goal: goal,
+
+                        onCalendar: {
+                            showCalendar = true
+                        },
 
                         onEditGoal: {
                             showEditGoal = true
@@ -40,10 +45,12 @@ struct ContentView: View {
                     }
                 }
             }
+
+            // MARK: - Edit Goal Navigation
+
             .navigationDestination(
                 isPresented: $showEditGoal
             ) {
-
                 if let goal = activeGoal {
 
                     EditGoalView(
@@ -53,6 +60,16 @@ struct ContentView: View {
                             saveGoal(updatedGoal)
                         }
                     )
+                }
+            }
+
+            // MARK: - Calendar Navigation
+
+            .navigationDestination(
+                isPresented: $showCalendar
+            ) {
+                if let goal = activeGoal {
+                    ActivitiesCalendarView(goal: goal)
                 }
             }
         }
@@ -104,8 +121,6 @@ struct ContentView: View {
 
         activeGoal = nil
     }
-    
-    
 }
 
 // MARK: - Preview
@@ -114,3 +129,4 @@ struct ContentView: View {
     ContentView()
         .preferredColorScheme(.dark)
 }
+
