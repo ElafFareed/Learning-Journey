@@ -18,6 +18,7 @@ struct ActivityView: View {
         onEditGoal: @escaping () -> Void = {},
         onSetGoal: @escaping () -> Void = {}
     ) {
+
         _viewModel = StateObject(
             wrappedValue: ActivityViewModel(goal: goal)
         )
@@ -58,12 +59,14 @@ struct ActivityView: View {
                         HStack(spacing: 12) {
 
                             Button(action: onCalendar) {
+
                                 JourneyCircleIconButton(
                                     symbol: "calendar"
                                 )
                             }
 
                             Button(action: onEditGoal) {
+
                                 JourneyCircleIconButton(
                                     symbol: "pencil.and.outline"
                                 )
@@ -104,51 +107,52 @@ struct ActivityView: View {
 
                     Spacer(minLength: 36)
 
-                    // MARK: - Daily Action
+                    // MARK: - Daily Action / Goal Result
 
                     if viewModel.goalIsActive {
 
                         Button {
+
                             viewModel.logLearningToday()
+
                         } label: {
 
                             JourneyLearningButton(
                                 isLogged: viewModel.todayStatus == .learned,
                                 isEnabled: viewModel.todayStatus != .learned
-                            )                        }
+                            )
+                        }
                         .buttonStyle(.plain)
                         .disabled(!viewModel.canLogToday)
                         .frame(maxWidth: .infinity)
 
-                    
-                    
-                    } else {
+                    } else if viewModel.shouldShowGoalResult {
 
                         VStack(spacing: 90) {
 
                             JourneyGoalResult(
-                                isCompleted: viewModel.learnedDays
-                                    + viewModel.frozenDays >= requiredDays
+                                isCompleted: viewModel.isGoalCompleted
                             )
 
                             Button(action: onSetGoal) {
 
-                                Label("Set a goal", systemImage: "scope")
-                                    .font(JourneyFont.buttonLabel)
-                                    .foregroundStyle(JourneyColor.text)
-                                    .frame(height: 50)
-                                    .padding(.horizontal, 18)
-                                    .background(
-                                        JourneyColor.orange,
-                                        in: Capsule()
-                                    )
+                                Label(
+                                    "Set a goal",
+                                    systemImage: "scope"
+                                )
+                                .font(JourneyFont.buttonLabel)
+                                .foregroundStyle(JourneyColor.text)
+                                .frame(height: 50)
+                                .padding(.horizontal, 18)
+                                .background(
+                                    JourneyColor.orange,
+                                    in: Capsule()
+                                )
                             }
                             .buttonStyle(.plain)
                         }
                         .frame(maxWidth: .infinity)
                     }
-
-
 
                     Spacer(minLength: 36)
 
@@ -159,14 +163,17 @@ struct ActivityView: View {
                         VStack(spacing: 16) {
 
                             Button {
+
                                 viewModel.freezeToday()
+
                             } label: {
 
                                 JourneyFreezeButton(
                                     isFrozen: viewModel.todayStatus == .frozen,
                                     isEnabled: viewModel.todayStatus != .frozen
                                         && viewModel.frozenDays < viewModel.freezeLimit
-                                )                            }
+                                )
+                            }
                             .buttonStyle(.plain)
                             .disabled(!viewModel.canFreezeToday)
 
@@ -198,14 +205,20 @@ struct ActivityView: View {
         }
         .background(JourneyColor.background)
         .navigationBarBackButtonHidden()
+
+        // MARK: - Refresh Date
+
         .onAppear {
             viewModel.refreshDay()
         }
+
         .onChange(of: scenePhase) { _, newPhase in
+
             if newPhase == .active {
                 viewModel.refreshDay()
             }
         }
+
         .onReceive(
             Timer.publish(
                 every: 60,
@@ -213,24 +226,8 @@ struct ActivityView: View {
                 in: .common
             ).autoconnect()
         ) { _ in
+
             viewModel.refreshDay()
         }
-    }
-
-    // MARK: - Required Days
-
-    private var requiredDays: Int {
-
-        let calendar = Calendar.current
-
-        let start = calendar.startOfDay(
-            for: viewModel.goal.createdAt
-        )
-
-        return calendar.dateComponents(
-            [.day],
-            from: start,
-            to: viewModel.goalEndDate
-        ).day ?? 0
     }
 }
