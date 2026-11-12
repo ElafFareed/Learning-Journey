@@ -3,15 +3,7 @@ import SwiftUI
 
 struct ContentView: View {
 
-    // MARK: - State
-
-    @State private var activeGoal: LearningGoal?
-    @State private var showEditGoal = false
-    @State private var showCalendar = false
-
-    private let goalKey = "activeLearningGoal"
-
-    // MARK: - Body
+    @EnvironmentObject private var viewModel: AppViewModel
 
     var body: some View {
 
@@ -19,21 +11,21 @@ struct ContentView: View {
 
             Group {
 
-                if let goal = activeGoal {
+                if let goal = viewModel.activeGoal {
 
                     ActivityView(
                         goal: goal,
 
                         onCalendar: {
-                            showCalendar = true
+                            viewModel.openCalendar()
                         },
 
                         onEditGoal: {
-                            showEditGoal = true
+                            viewModel.openEditGoal()
                         },
 
                         onSetGoal: {
-                            clearGoal()
+                            viewModel.clearGoal()
                         }
                     )
                     .id(goal.id)
@@ -41,92 +33,46 @@ struct ContentView: View {
                 } else {
 
                     OnboardingView { goal in
-                        saveGoal(goal)
+                        viewModel.saveGoal(goal)
                     }
                 }
             }
 
-            // MARK: - Edit Goal Navigation
+            // MARK: - Edit Goal
+
+            .sheet(isPresented: $viewModel.showEditGoal) {
+                if let goal = viewModel.activeGoal {
+                    NavigationStack {
+                        EditGoalView(
+                            goal: goal,
+                            onUpdate: { updatedGoal in
+                                viewModel.updateGoal(updatedGoal)
+                            }
+                        )
+                    }
+                    .presentationDragIndicator(.hidden)
+                }
+            }
+
+            // MARK: - Calendar
 
             .navigationDestination(
-                isPresented: $showEditGoal
+                isPresented: $viewModel.showCalendar
             ) {
-                if let goal = activeGoal {
 
-                    EditGoalView(
-                        goal: goal,
-                        onUpdate: { updatedGoal in
-                            showEditGoal = false
-                            saveGoal(updatedGoal)
-                        }
+                if let goal = viewModel.activeGoal {
+
+                    ActivitiesCalendarView(
+                        goal: goal
                     )
                 }
             }
-
-            // MARK: - Calendar Navigation
-
-            .navigationDestination(
-                isPresented: $showCalendar
-            ) {
-                if let goal = activeGoal {
-                    ActivitiesCalendarView(goal: goal)
-                }
-            }
         }
-        .onAppear {
-            loadGoal()
-        }
-    }
-
-    // MARK: - Save Goal
-
-    private func saveGoal(_ goal: LearningGoal) {
-
-        guard let data = try? JSONEncoder().encode(goal) else {
-            return
-        }
-
-        UserDefaults.standard.set(
-            data,
-            forKey: goalKey
-        )
-
-        activeGoal = goal
-    }
-
-    // MARK: - Load Goal
-
-    private func loadGoal() {
-
-        guard let data = UserDefaults.standard.data(
-            forKey: goalKey
-        ),
-        let goal = try? JSONDecoder().decode(
-            LearningGoal.self,
-            from: data
-        ) else {
-            return
-        }
-
-        activeGoal = goal
-    }
-
-    // MARK: - Clear Goal
-
-    private func clearGoal() {
-
-        UserDefaults.standard.removeObject(
-            forKey: goalKey
-        )
-
-        activeGoal = nil
     }
 }
-
-// MARK: - Preview
 
 #Preview {
     ContentView()
+        .environmentObject(AppViewModel())
         .preferredColorScheme(.dark)
 }
-

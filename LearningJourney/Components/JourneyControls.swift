@@ -252,18 +252,31 @@ struct JourneyCircleIconButton: View {
     var size: CGFloat = 44
 
     var body: some View {
+        if #available(iOS 26.0, *) {
+            iconLabel
+                .glassEffect(
+                    .regular.tint(color.opacity(0.35)),
+                    in: .circle
+                )
+        } else {
+            iconLabel
+                .background(color, in: Circle())
+                .overlay {
+                    Circle()
+                        .strokeBorder(
+                            Color.white.opacity(0.15),
+                            lineWidth: 1
+                        )
+                }
+        }
+    }
+
+    private var iconLabel: some View {
         Image(systemName: symbol)
             .font(.system(size: 20, weight: .medium))
             .foregroundStyle(symbolColor)
             .frame(width: size, height: size)
-            .background(color, in: Circle())
-            .overlay {
-                Circle()
-                    .strokeBorder(
-                        Color.white.opacity(0.15),
-                        lineWidth: 1
-                    )
-            }
+            .contentShape(Circle())
     }
 }
 

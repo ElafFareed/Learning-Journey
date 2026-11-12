@@ -65,7 +65,7 @@ struct ActivityView: View {
 
                             Button(action: onEditGoal) {
                                 JourneyCircleIconButton(
-                                    symbol: "square.and.pencil"
+                                    symbol: "pencil.and.outline"
                                 )
                             }
                         }

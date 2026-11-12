@@ -7,38 +7,56 @@ struct ActivitiesCalendarView: View {
 
     let goal: LearningGoal
 
-    private let calendar = Calendar.current
-
     @State private var records: [LearningDayRecord] = []
 
-    // MARK: - Calendar Range
+    private let calendar = Calendar.current
 
-    // Show months from 10 years ago through 10 years ahead.
-    // This allows continuous scrolling across years.
+    private let weekdays = [
+        "SUN", "MON", "TUE", "WED",
+        "THU", "FRI", "SAT"
+    ]
+
+    // MARK: - Calendar Months
 
     private var months: [Date] {
 
+        // Start from the month the goal was created.
+        guard let firstMonth = calendar.dateInterval(
+            of: .month,
+            for: goal.createdAt
+        )?.start else {
+            return []
+        }
+
+        // Show through December of next year.
         let currentYear = calendar.component(
             .year,
             from: Date()
         )
 
-        let firstYear = currentYear - 10
-        let lastYear = currentYear + 10
+        let lastYear = currentYear + 1
 
-        guard let firstMonth = calendar.date(
+        guard let lastMonth = calendar.date(
             from: DateComponents(
-                year: firstYear,
-                month: 1,
+                year: lastYear,
+                month: 12,
                 day: 1
             )
         ) else {
             return []
         }
 
-        let monthCount = (lastYear - firstYear + 1) * 12
+        let monthCount = calendar.dateComponents(
+            [.month],
+            from: firstMonth,
+            to: lastMonth
+        ).month ?? 0
 
-        return (0..<monthCount).compactMap { offset in
+        guard monthCount >= 0 else {
+            return []
+        }
+
+        return (0...monthCount).compactMap { offset in
             calendar.date(
                 byAdding: .month,
                 value: offset,
@@ -108,54 +126,38 @@ struct ActivitiesCalendarView: View {
             .padding(.horizontal, 16)
             .padding(.top, 12)
 
-            // MARK: - Scrollable Calendar
+            // MARK: - Calendar
 
-            ScrollViewReader { proxy in
+            ScrollView {
 
-                ScrollView {
+                LazyVStack(spacing: 0) {
 
-                    LazyVStack(spacing: 0) {
+                    ForEach(months, id: \.self) { month in
 
-                        ForEach(months, id: \.self) { month in
+                        monthSection(month)
 
-                            monthSection(month)
-                                .id(month)
-
-                            Divider()
-                                .overlay(
-                                    JourneyColor.secondaryText
-                                        .opacity(0.25)
-                                )
-                                .padding(.vertical, 16)
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 24)
-                    .padding(.bottom, 24)
-                }
-                .scrollIndicators(.hidden)
-                .onAppear {
-
-                    records = LearningRecordStorage().load(
-                        for: goal.id
-                    )
-
-                    // Open at the current month.
-                    if let currentMonth = calendar.dateInterval(
-                        of: .month,
-                        for: Date()
-                    )?.start {
-
-                        proxy.scrollTo(
-                            currentMonth,
-                            anchor: .top
-                        )
+                        Divider()
+                            .overlay(
+                                JourneyColor.secondaryText
+                                    .opacity(0.25)
+                            )
+                            .padding(.vertical, 16)
                     }
                 }
+                .padding(.horizontal, 16)
+                .padding(.top, 24)
+                .padding(.bottom, 24)
             }
+            .scrollIndicators(.hidden)
         }
         .background(JourneyColor.background)
         .navigationBarBackButtonHidden()
+        .onAppear {
+
+            records = LearningRecordStorage().load(
+                for: goal.id
+            )
+        }
     }
 
     // MARK: - Month Section
@@ -168,9 +170,7 @@ struct ActivitiesCalendarView: View {
 
             Text(
                 month.formatted(
-                    .dateTime
-                        .month(.wide)
-                        .year()
+                    .dateTime.month(.wide).year()
                 )
             )
             .font(JourneyFont.buttonLabel)
@@ -181,7 +181,7 @@ struct ActivitiesCalendarView: View {
             HStack(spacing: 0) {
 
                 ForEach(
-                    ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"],
+                    weekdays,
                     id: \.self
                 ) { weekday in
 
@@ -199,7 +199,7 @@ struct ActivitiesCalendarView: View {
                 }
             }
 
-            // Dates for this month
+            // Month dates
 
             monthGrid(month)
         }
@@ -215,7 +215,7 @@ struct ActivitiesCalendarView: View {
         )
 
         // Sunday-first calendar
-        let leadingSpaces = (firstWeekday - 1 + 7) % 7
+        let leadingSpaces = firstWeekday - 1
 
         let numberOfDays = calendar.range(
             of: .day,
@@ -238,7 +238,10 @@ struct ActivitiesCalendarView: View {
             spacing: 8
         ) {
 
-            ForEach(0..<totalCells, id: \.self) { index in
+            ForEach(
+                0..<totalCells,
+                id: \.self
+            ) { index in
 
                 if index < leadingSpaces {
 
@@ -255,14 +258,36 @@ struct ActivitiesCalendarView: View {
                         to: month
                     ) {
 
-                        JourneyDayCell(
-                            day: day,
-                            style: style(for: date)
-                        )
-                        .frame(maxWidth: .infinity)
+                        if calendar.startOfDay(for: date) <
+                            calendar.startOfDay(for: goal.createdAt) {
+
+                            // Hide dates before learning began.
+                            Color.clear
+                                .frame(height: 44)
+
+                        } else {
+
+                            JourneyDayCell(
+                                day: day,
+                                style: style(for: date)
+                            )
+                            .frame(maxWidth: .infinity)
+                        }
                     }
                 }
             }
         }
     }
+}
+
+#Preview {
+    NavigationStack {
+        ActivitiesCalendarView(
+            goal: LearningGoal(
+                topic: "Swift",
+                duration: .week
+            )
+        )
+    }
+    .preferredColorScheme(.dark)
 }
