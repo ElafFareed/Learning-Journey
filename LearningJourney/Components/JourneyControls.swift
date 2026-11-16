@@ -182,6 +182,7 @@ struct JourneyTextField: View {
 
 // MARK: - Underlined Text Field
 
+
 struct JourneyUnderlinedTextField: View {
 
     let placeholder: String
@@ -189,21 +190,25 @@ struct JourneyUnderlinedTextField: View {
 
     var body: some View {
 
-        TextField(
-            "",
-            text: $text,
-            prompt: Text(placeholder)
-                .foregroundStyle(JourneyColor.secondaryText)
-        )
-        .font(JourneyFont.textField)
-        .foregroundStyle(JourneyColor.text)
-        .tint(JourneyColor.orange)
-        .padding(.horizontal, 16)
-        .frame(height: 48)
-        .glassEffect(
-            .regular,
-            in: RoundedRectangle(cornerRadius: 14)
-        )
+        VStack(spacing: 0) {
+
+            TextField(
+                "",
+                text: $text,
+                prompt: Text(placeholder)
+                    .foregroundStyle(
+                        JourneyColor.secondaryText
+                    )
+            )
+            .font(JourneyFont.textField)
+            .foregroundStyle(JourneyColor.text)
+            .tint(JourneyColor.orange)
+            .frame(height: 44)
+
+            Rectangle()
+                .fill(Color.white.opacity(0.15))
+                .frame(height: 1)
+        }
     }
 }
 
