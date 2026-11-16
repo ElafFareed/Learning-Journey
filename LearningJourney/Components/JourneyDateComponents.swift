@@ -14,60 +14,79 @@ enum JourneyDayStyle {
 
 // MARK: - Day Cell
 
+
 struct JourneyDayCell: View {
 
     let day: Int
     var style: JourneyDayStyle = .normal
 
     private var textColor: Color {
+
         switch style {
+
         case .normal:
-            JourneyColor.text
+            return JourneyColor.text
+
         case .selected, .current:
-            JourneyColor.primary
+            return JourneyColor.primary
+
         case .currentSelected, .today:
-            JourneyColor.text
+            return JourneyColor.text
+
         case .learned:
-            JourneyColor.orange
+            return JourneyColor.orange
+
         case .frozen:
-            JourneyColor.cyan
+            return JourneyColor.cyan
         }
     }
 
-    private var backgroundColor: Color {
+    private var glassTint: Color {
+
         switch style {
+
         case .normal:
-            .clear
-        case .selected, .current:
-            JourneyColor.primary.opacity(0.12)
-        case .currentSelected:
-            JourneyColor.primary
+            return .clear
+
+        case .selected, .current, .currentSelected:
+            return JourneyColor.primary.opacity(0.30)
+
         case .today:
-            JourneyColor.orange
+            return JourneyColor.orange.opacity(0.55)
+
         case .learned:
-            JourneyColor.learnedDayBackground
+            return JourneyColor.orange.opacity(0.20)
+
         case .frozen:
-            JourneyColor.frozenDayBackground
+            return JourneyColor.cyan.opacity(0.20)
         }
     }
 
     private var dateFont: Font {
+
         switch style {
+
         case .selected, .currentSelected, .today:
-            JourneyFont.selectedDate
+            return JourneyFont.selectedDate
+
         default:
-            JourneyFont.defaultDate
+            return JourneyFont.defaultDate
         }
     }
 
     var body: some View {
+
         Text("\(day)")
             .font(dateFont)
             .foregroundStyle(textColor)
             .frame(width: 44, height: 44)
-            .background(backgroundColor, in: Circle())
+            .glassEffect(
+                .regular.tint(glassTint),
+                in: Circle()
+            )
     }
 }
+
 
 // MARK: - Week Row
 
