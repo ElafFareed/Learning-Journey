@@ -55,6 +55,7 @@ struct JourneyDurationButton: View {
 
 // MARK: - Learning Button
 
+
 struct JourneyLearningButton: View {
 
     var isLogged = false
@@ -82,7 +83,7 @@ struct JourneyLearningButton: View {
             .regular
                 .tint(
                     isDisabled
-                        ? JourneyColor.disabledButton
+                        ? JourneyColor.surface
                         : JourneyColor.orange
                 )
                 .interactive(!isDisabled),
@@ -92,6 +93,7 @@ struct JourneyLearningButton: View {
 }
 
 // MARK: - Freeze Button
+
 
 struct JourneyFreezeButton: View {
 
@@ -120,7 +122,7 @@ struct JourneyFreezeButton: View {
             .regular
                 .tint(
                     isDisabled
-                        ? JourneyColor.disabledButton
+                        ? JourneyColor.surface
                         : JourneyColor.cyan
                 )
                 .interactive(!isDisabled),
@@ -152,6 +154,7 @@ struct JourneyPlayButton: View {
 
 // MARK: - Text Field
 
+
 struct JourneyTextField: View {
 
     let placeholder: String
@@ -163,17 +166,15 @@ struct JourneyTextField: View {
             "",
             text: $text,
             prompt: Text(placeholder)
-                .foregroundStyle(
-                    JourneyColor.textFieldPlaceholder
-                )
+                .foregroundStyle(JourneyColor.secondaryText)
         )
         .font(JourneyFont.textField)
         .foregroundStyle(JourneyColor.text)
         .tint(JourneyColor.orange)
         .padding(.horizontal, 16)
         .frame(height: 48)
-        .background(
-            JourneyColor.surface,
+        .glassEffect(
+            .regular,
             in: RoundedRectangle(cornerRadius: 14)
         )
     }
@@ -188,25 +189,21 @@ struct JourneyUnderlinedTextField: View {
 
     var body: some View {
 
-        VStack(spacing: 0) {
-
-            TextField(
-                "",
-                text: $text,
-                prompt: Text(placeholder)
-                    .foregroundStyle(
-                        JourneyColor.secondaryText
-                    )
-            )
-            .font(JourneyFont.textField)
-            .foregroundStyle(JourneyColor.text)
-            .tint(JourneyColor.orange)
-            .frame(height: 44)
-
-            Rectangle()
-                .fill(Color.white.opacity(0.15))
-                .frame(height: 1)
-        }
+        TextField(
+            "",
+            text: $text,
+            prompt: Text(placeholder)
+                .foregroundStyle(JourneyColor.secondaryText)
+        )
+        .font(JourneyFont.textField)
+        .foregroundStyle(JourneyColor.text)
+        .tint(JourneyColor.orange)
+        .padding(.horizontal, 16)
+        .frame(height: 48)
+        .glassEffect(
+            .regular,
+            in: RoundedRectangle(cornerRadius: 14)
+        )
     }
 }
 
