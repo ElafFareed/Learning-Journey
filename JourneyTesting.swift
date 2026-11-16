@@ -8,20 +8,20 @@ struct JourneyTesting: View {
     // MARK: - Test State
 
     @State private var duration: LearningDuration = .week
+    @State private var goalStart: Date
     @State private var simulatedNow: Date
     @State private var activities: [LearningDayRecord] = []
 
     // MARK: - Test Configuration
 
-    private let goalStart: Date
     private let calendar = Calendar.current
-
     private let streakTimeLimit: TimeInterval = 32 * 60 * 60
 
     init() {
+
         let start = Date()
 
-        self.goalStart = start
+        _goalStart = State(initialValue: start)
         _simulatedNow = State(initialValue: start)
     }
 
@@ -73,11 +73,28 @@ struct JourneyTesting: View {
             to: calendar.startOfDay(for: simulatedNow)
         ).day ?? 0
 
-        return min(max(elapsedDays + 1, 1), totalDays)
+        return min(
+            max(elapsedDays + 1, 1),
+            totalDays
+        )
     }
+
+    // MARK: - Goal State
 
     private var isExpired: Bool {
         simulatedNow >= goalEnd
+    }
+
+    private var isGoalActive: Bool {
+
+        !isExpired &&
+        !isGoalStreakBroken
+    }
+
+    private var shouldShowGoalResult: Bool {
+
+        isExpired ||
+        isGoalStreakBroken
     }
 
     // MARK: - Freeze Limits
@@ -85,116 +102,206 @@ struct JourneyTesting: View {
     private var freezeLimit: Int {
 
         switch duration {
-        case .week: return 2
-        case .month: return 8
-        case .year: return 96
+
+        case .week:
+            return 2
+
+        case .month:
+            return 8
+
+        case .year:
+            return 96
         }
+    }
+
+    private var remainingFreezes: Int {
+
+        max(0, freezeLimit - frozenDays)
     }
 
     // MARK: - Counters
 
     private var learnedDays: Int {
-        activities.filter { $0.status == .learned }.count
+
+        activities.filter {
+            $0.status == .learned
+        }.count
     }
 
     private var frozenDays: Int {
-        activities.filter { $0.status == .frozen }.count
-    }
 
-    private var remainingFreezes: Int {
-        max(0, freezeLimit - frozenDays)
+        activities.filter {
+            $0.status == .frozen
+        }.count
     }
 
     private var coveredDays: Int {
+
         learnedDays + frozenDays
     }
 
-    private var hasActivityToday: Bool {
+    // MARK: - Today's Status
 
-        activities.contains {
+    private var todayStatus: LearningDayStatus? {
+
+        activities.first {
             calendar.isDate(
                 $0.date,
                 inSameDayAs: simulatedNow
             )
+        }?.status
+    }
+
+    private var hasActivityToday: Bool {
+
+        todayStatus != nil
+    }
+
+    private var canLogToday: Bool {
+
+        isGoalActive &&
+        !hasActivityToday
+    }
+
+    private var canFreezeToday: Bool {
+
+        canLogToday &&
+        remainingFreezes > 0
+    }
+
+    // MARK: - Activity Records
+
+    private var sortedActivities: [LearningDayRecord] {
+
+        activities.sorted {
+            $0.date < $1.date
         }
+    }
+
+    private var lastActivityDate: Date {
+
+        sortedActivities.last?.date ?? goalStart
     }
 
     // MARK: - 32-Hour Streak
 
-    private var sortedActivities: [LearningDayRecord] {
-        activities.sorted { $0.date < $1.date }
-    }
-
-    private var lastActivityDate: Date {
-        sortedActivities.last?.date ?? goalStart
-    }
-
     private var hoursSinceActivity: Double {
 
-        max(
+        let evaluationDate = min(
+            simulatedNow,
+            goalEnd
+        )
+
+        return max(
             0,
-            simulatedNow.timeIntervalSince(lastActivityDate) / 3600
+            evaluationDate.timeIntervalSince(
+                lastActivityDate
+            ) / 3600
         )
     }
 
+    // MARK: - Permanent Goal Failure
+
     private var isGoalStreakBroken: Bool {
+
+        // Countdown begins when the goal starts.
 
         var previousDate = goalStart
 
+        // A historical gap greater than 32 hours
+        // permanently breaks the goal.
+
         for activity in sortedActivities {
 
-            if activity.date.timeIntervalSince(previousDate)
-                > streakTimeLimit {
+            let elapsed = activity.date.timeIntervalSince(
+                previousDate
+            )
+
+            if elapsed > streakTimeLimit {
                 return true
             }
 
             previousDate = activity.date
         }
 
-        let evaluationDate = min(simulatedNow, goalEnd)
+        // Stop measuring when the goal expires.
 
-        return evaluationDate.timeIntervalSince(previousDate)
-            > streakTimeLimit
+        let evaluationDate = min(
+            simulatedNow,
+            goalEnd
+        )
+
+        let inactivity = evaluationDate.timeIntervalSince(
+            previousDate
+        )
+
+        return inactivity > streakTimeLimit
     }
+
+    // MARK: - Current Streak
 
     private var currentStreak: Int {
 
-        guard let lastActivity = sortedActivities.last else {
+        // A failed goal no longer has
+        // an active streak.
+
+        guard !isGoalStreakBroken else {
             return 0
         }
 
-        if simulatedNow.timeIntervalSince(lastActivity.date)
-            > streakTimeLimit {
+        guard !sortedActivities.isEmpty else {
             return 0
         }
 
-        var streak = 0
-        var previousDate = goalStart
+        // Learned increases the streak.
+        // Freeze maintains it.
 
-        for activity in sortedActivities {
-
-            if activity.date.timeIntervalSince(previousDate)
-                > streakTimeLimit {
-                streak = 0
-            }
-
-            if activity.status == .learned {
-                streak += 1
-            }
-
-            previousDate = activity.date
-        }
-
-        return streak
+        return sortedActivities.filter {
+            $0.status == .learned
+        }.count
     }
 
     // MARK: - Goal Completion
 
     private var isCompleted: Bool {
 
-        coveredDays == totalDays &&
-        frozenDays <= freezeLimit &&
-        !isGoalStreakBroken
+        guard shouldShowGoalResult else {
+            return false
+        }
+
+        return coveredDays == totalDays &&
+               frozenDays <= freezeLimit &&
+               !isGoalStreakBroken
+    }
+
+    // MARK: - Goal Status Text
+
+    private var goalStatusText: String {
+
+        if isGoalStreakBroken {
+            return "Goal Failed — Streak Broken"
+        }
+
+        if isExpired {
+            return isCompleted
+                ? "Goal Completed"
+                : "Goal Ended — Not Completed"
+        }
+
+        return "Goal Active"
+    }
+
+    private var goalStatusColor: Color {
+
+        if isGoalStreakBroken {
+            return .red
+        }
+
+        if isExpired {
+            return isCompleted ? .green : .orange
+        }
+
+        return .cyan
     }
 
     // MARK: - Body
@@ -207,6 +314,8 @@ struct JourneyTesting: View {
 
                 VStack(spacing: 24) {
 
+                    // MARK: - Header
+
                     Text("Journey Test Mode")
                         .font(.title2.bold())
 
@@ -214,9 +323,12 @@ struct JourneyTesting: View {
                         .font(.caption)
                         .foregroundStyle(.cyan)
 
-                    // MARK: - Duration
+                    // MARK: - Duration Picker
 
-                    Picker("Duration", selection: $duration) {
+                    Picker(
+                        "Duration",
+                        selection: $duration
+                    ) {
 
                         ForEach(
                             LearningDuration.allCases,
@@ -239,8 +351,10 @@ struct JourneyTesting: View {
                         Text("Simulated Day")
                             .foregroundStyle(.secondary)
 
-                        Text("\(currentDay) / \(totalDays)")
-                            .font(.title.bold())
+                        Text(
+                            "\(currentDay) / \(totalDays)"
+                        )
+                        .font(.title.bold())
 
                         Text(
                             simulatedNow.formatted(
@@ -254,20 +368,19 @@ struct JourneyTesting: View {
                         )
                         .font(.subheadline)
 
-                        Text(
-                            isExpired
-                            ? "Goal Ended"
-                            : "Goal Active"
-                        )
-                        .foregroundStyle(
-                            isExpired ? .orange : .cyan
-                        )
+                        Text(goalStatusText)
+                            .font(.subheadline.bold())
+                            .foregroundStyle(
+                                goalStatusColor
+                            )
                     }
                     .frame(maxWidth: .infinity)
                     .padding(24)
                     .background(
                         Color.white.opacity(0.08),
-                        in: RoundedRectangle(cornerRadius: 20)
+                        in: RoundedRectangle(
+                            cornerRadius: 20
+                        )
                     )
 
                     // MARK: - Statistics
@@ -294,14 +407,20 @@ struct JourneyTesting: View {
                     VStack(spacing: 12) {
 
                         HStack {
+
                             Text("Current streak")
+
                             Spacer()
+
                             Text("\(currentStreak)")
                         }
 
                         HStack {
+
                             Text("Hours since action")
+
                             Spacer()
+
                             Text(
                                 hoursSinceActivity.formatted(
                                     .number.precision(
@@ -312,7 +431,9 @@ struct JourneyTesting: View {
                         }
 
                         HStack {
+
                             Text("32-hour goal streak")
+
                             Spacer()
 
                             Text(
@@ -328,8 +449,11 @@ struct JourneyTesting: View {
                         }
 
                         HStack {
+
                             Text("Freezes remaining")
+
                             Spacer()
+
                             Text("\(remainingFreezes)")
                         }
                     }
@@ -337,49 +461,62 @@ struct JourneyTesting: View {
                     .padding(16)
                     .background(
                         Color.white.opacity(0.08),
-                        in: RoundedRectangle(cornerRadius: 16)
+                        in: RoundedRectangle(
+                            cornerRadius: 16
+                        )
                     )
 
                     // MARK: - Daily Actions
 
-                    if !isExpired {
+                    if isGoalActive {
+
+                        // Only show Learned when
+                        // the goal is still active.
 
                         Button {
+
                             record(.learned)
+
                         } label: {
 
                             JourneyLearningButton(
                                 isLogged: todayStatus == .learned,
-                                isEnabled: !hasActivityToday
+                                isEnabled: canLogToday
                             )
                         }
                         .buttonStyle(.plain)
-                        .disabled(hasActivityToday)
+                        .disabled(!canLogToday)
+
+                        // Only show Freeze while
+                        // the goal is active.
 
                         Button {
+
                             record(.frozen)
+
                         } label: {
 
                             JourneyFreezeButton(
                                 isFrozen: todayStatus == .frozen,
-                                isEnabled: !hasActivityToday
-                                    && remainingFreezes > 0
+                                isEnabled: canFreezeToday
                             )
                         }
                         .buttonStyle(.plain)
-                        .disabled(
-                            hasActivityToday ||
-                            remainingFreezes == 0
-                        )
+                        .disabled(!canFreezeToday)
 
-                    } else {
+                    } else if shouldShowGoalResult {
+
+                        // Display immediately after
+                        // the 32-hour streak breaks.
 
                         JourneyGoalResult(
                             isCompleted: isCompleted
                         )
 
-                        Button("Set a goal") {
+                        Button("Set a new goal") {
+
                             reset()
+
                         }
                         .buttonStyle(.borderedProminent)
                         .tint(JourneyColor.orange)
@@ -411,29 +548,37 @@ struct JourneyTesting: View {
 
                         Text(
                             "Time only moves forward. " +
-                            "Missed days cannot be filled retroactively."
+                            "Once the streak breaks, " +
+                            "the goal ends immediately."
                         )
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
                     }
 
-                    // MARK: - Saved Test Actions
+                    // MARK: - Activity History
 
-                    VStack(alignment: .leading, spacing: 10) {
+                    VStack(
+                        alignment: .leading,
+                        spacing: 10
+                    ) {
 
                         Text("Simulated Activity History")
                             .font(.headline)
 
                         if sortedActivities.isEmpty {
 
-                            Text("No activities recorded yet.")
-                                .foregroundStyle(.secondary)
+                            Text(
+                                "No activities recorded yet."
+                            )
+                            .foregroundStyle(.secondary)
 
                         } else {
 
                             ForEach(
-                                Array(sortedActivities.enumerated()),
+                                Array(
+                                    sortedActivities.enumerated()
+                                ),
                                 id: \.offset
                             ) { _, activity in
 
@@ -473,15 +618,19 @@ struct JourneyTesting: View {
                             }
                         }
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(
+                        maxWidth: .infinity,
+                        alignment: .leading
+                    )
 
-                    // MARK: - Reset
+                    // MARK: - Reset Simulation
 
                     Button("Reset Simulation") {
+
                         reset()
+
                     }
                     .foregroundStyle(.red)
-
                 }
                 .padding(20)
             }
@@ -492,27 +641,24 @@ struct JourneyTesting: View {
         }
     }
 
-    // MARK: - Today's Status
-
-    private var todayStatus: LearningDayStatus? {
-
-        activities.first {
-            calendar.isDate(
-                $0.date,
-                inSameDayAs: simulatedNow
-            )
-        }?.status
-    }
-
     // MARK: - Record Activity
 
-    private func record(_ status: LearningDayStatus) {
+    private func record(
+        _ status: LearningDayStatus
+    ) {
 
-        guard !isExpired else { return }
-        guard !hasActivityToday else { return }
+        // No actions are allowed when
+        // the goal fails or expires.
+
+        guard canLogToday else {
+            return
+        }
 
         if status == .frozen {
-            guard remainingFreezes > 0 else { return }
+
+            guard canFreezeToday else {
+                return
+            }
         }
 
         let activity = LearningDayRecord(
@@ -528,22 +674,32 @@ struct JourneyTesting: View {
     private func advance(hours: Int) {
 
         simulatedNow = simulatedNow.addingTimeInterval(
-            TimeInterval(hours * 60 * 60)
+            TimeInterval(hours) * 60 * 60
         )
     }
 
-    // MARK: - Reset
+    // MARK: - Reset Simulation
 
     private func reset() {
 
-        simulatedNow = goalStart
+        // Create a fresh simulated goal.
+
+        let newStart = Date()
+
+        goalStart = newStart
+        simulatedNow = newStart
+
+        // Clear only the DEBUG simulation records.
+        // This does not touch UserDefaults or
+        // the real Activities Calendar history.
+
         activities = []
     }
 }
 
 #Preview {
+
     JourneyTesting()
 }
 
 #endif
-

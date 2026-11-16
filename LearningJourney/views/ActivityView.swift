@@ -111,6 +111,9 @@ struct ActivityView: View {
 
                     if viewModel.goalIsActive {
 
+                        // Active goal:
+                        // Allow one Learned action per day.
+
                         Button {
 
                             viewModel.logLearningToday()
@@ -119,7 +122,7 @@ struct ActivityView: View {
 
                             JourneyLearningButton(
                                 isLogged: viewModel.todayStatus == .learned,
-                                isEnabled: viewModel.todayStatus != .learned
+                                isEnabled: viewModel.canLogToday
                             )
                         }
                         .buttonStyle(.plain)
@@ -127,6 +130,9 @@ struct ActivityView: View {
                         .frame(maxWidth: .infinity)
 
                     } else if viewModel.shouldShowGoalResult {
+
+                        // Completed goal or permanently
+                        // failed 32-hour streak.
 
                         VStack(spacing: 90) {
 
@@ -137,7 +143,7 @@ struct ActivityView: View {
                             Button(action: onSetGoal) {
 
                                 Label(
-                                    "Set a goal",
+                                    "Set a new goal",
                                     systemImage: "scope"
                                 )
                                 .font(JourneyFont.buttonLabel)
@@ -170,8 +176,7 @@ struct ActivityView: View {
 
                                 JourneyFreezeButton(
                                     isFrozen: viewModel.todayStatus == .frozen,
-                                    isEnabled: viewModel.todayStatus != .frozen
-                                        && viewModel.frozenDays < viewModel.freezeLimit
+                                    isEnabled: viewModel.canFreezeToday
                                 )
                             }
                             .buttonStyle(.plain)
@@ -218,6 +223,8 @@ struct ActivityView: View {
                 viewModel.refreshDay()
             }
         }
+
+        // MARK: - Check Streak Deadline
 
         .onReceive(
             Timer.publish(
