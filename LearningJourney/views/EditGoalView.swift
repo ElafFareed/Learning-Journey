@@ -77,44 +77,34 @@ struct EditGoalView: View {
         .background(JourneyColor.background)
         .navigationBarBackButtonHidden()
 
-        // MARK: - Update Confirmation
+        // MARK: - Native Update Confirmation
 
-        
-        .overlay {
-            if showUpdateAlert {
+        .alert(
+            "Update goal",
+            isPresented: $showUpdateAlert
+        ) {
+            Button("Dismiss", role: .cancel) {}
 
-                ZStack {
-
-                    Color.black.opacity(0.60)
-                        .ignoresSafeArea()
-
-                    JourneyAlert(
-                        title: "Update goal",
-                        message: "If you update now, your streak will start over.",
-                        primaryTitle: "Update",
-                        secondaryTitle: "Dismiss",
-                        primaryTint: JourneyColor.orange,
-                        onPrimary: {
-                            showUpdateAlert = false
-                            updateGoal()
-                        },
-                        onSecondary: {
-                            showUpdateAlert = false
-                        }
-                    )
-                }
+            Button("Update") {
+                updateGoal()
             }
+        } message: {
+            Text(
+                "If you update now, your streak will start over."
+            )
         }
-
     }
 
     // MARK: - Save Updated Goal
 
     private func updateGoal() {
+
         guard canUpdate else { return }
 
         let updatedGoal = LearningGoal(
-            topic: topic.trimmingCharacters(in: .whitespacesAndNewlines),
+            topic: topic.trimmingCharacters(
+                in: .whitespacesAndNewlines
+            ),
             duration: duration
         )
 

@@ -9,12 +9,16 @@ struct JourneyButton: View {
     var color: Color = JourneyColor.orange
 
     var body: some View {
+
         Text(title)
             .font(JourneyFont.buttonLabel)
             .foregroundStyle(JourneyColor.text)
-            .padding(.horizontal, 20)
+            .padding(.horizontal, 24)
             .frame(height: 48)
-            .background(color, in: Capsule())
+            .glassEffect(
+                .regular.tint(color).interactive(),
+                in: Capsule()
+            )
     }
 }
 
@@ -26,6 +30,7 @@ struct JourneyDurationButton: View {
     var isSelected = false
 
     var body: some View {
+
         Text(title)
             .font(JourneyFont.buttonLabel)
             .foregroundStyle(
@@ -35,19 +40,16 @@ struct JourneyDurationButton: View {
             )
             .padding(.horizontal, 20)
             .frame(height: 46)
-            .background(
-                isSelected
-                    ? JourneyColor.orange
-                    : JourneyColor.durationBackground,
+            .glassEffect(
+                .regular
+                    .tint(
+                        isSelected
+                            ? JourneyColor.orange
+                            : JourneyColor.durationBackground
+                    )
+                    .interactive(),
                 in: Capsule()
             )
-            .overlay {
-                Capsule()
-                    .strokeBorder(
-                        Color.white.opacity(isSelected ? 0.40 : 0.12),
-                        lineWidth: 1
-                    )
-            }
     }
 }
 
@@ -58,7 +60,12 @@ struct JourneyLearningButton: View {
     var isLogged = false
     var isEnabled = true
 
+    private var isDisabled: Bool {
+        isLogged || !isEnabled
+    }
+
     var body: some View {
+
         Text(
             isLogged
                 ? "Logged as Learned"
@@ -66,24 +73,21 @@ struct JourneyLearningButton: View {
         )
         .font(JourneyFont.buttonLabel)
         .foregroundStyle(
-            isLogged || !isEnabled
+            isDisabled
                 ? JourneyColor.secondaryText
                 : JourneyColor.text
         )
         .frame(width: 272, height: 272)
-        .background(
-            isLogged || !isEnabled
-                ? JourneyColor.disabledButton
-                : JourneyColor.orange,
+        .glassEffect(
+            .regular
+                .tint(
+                    isDisabled
+                        ? JourneyColor.disabledButton
+                        : JourneyColor.orange
+                )
+                .interactive(!isDisabled),
             in: Circle()
         )
-        .overlay {
-            Circle()
-                .strokeBorder(
-                    Color.white.opacity(0.12),
-                    lineWidth: 1
-                )
-        }
     }
 }
 
@@ -99,6 +103,7 @@ struct JourneyFreezeButton: View {
     }
 
     var body: some View {
+
         Text(
             isFrozen
                 ? "Frozen for a day"
@@ -111,19 +116,16 @@ struct JourneyFreezeButton: View {
                 : JourneyColor.text
         )
         .frame(width: 272, height: 46)
-        .background(
-            isDisabled
-                ? JourneyColor.disabledButton
-                : JourneyColor.cyan,
+        .glassEffect(
+            .regular
+                .tint(
+                    isDisabled
+                        ? JourneyColor.disabledButton
+                        : JourneyColor.cyan
+                )
+                .interactive(!isDisabled),
             in: Capsule()
         )
-        .overlay {
-            Capsule()
-                .strokeBorder(
-                    Color.white.opacity(0.12),
-                    lineWidth: 1
-                )
-        }
     }
 }
 
@@ -132,6 +134,7 @@ struct JourneyFreezeButton: View {
 struct JourneyPlayButton: View {
 
     var body: some View {
+
         HStack(spacing: 4) {
             Image(systemName: "play.fill")
             Text("Play")
@@ -140,7 +143,10 @@ struct JourneyPlayButton: View {
         .foregroundStyle(JourneyColor.primary)
         .padding(.horizontal, 12)
         .frame(height: 32)
-        .background(.white, in: Capsule())
+        .glassEffect(
+            .regular.interactive(),
+            in: Capsule()
+        )
     }
 }
 
@@ -152,18 +158,24 @@ struct JourneyTextField: View {
     @Binding var text: String
 
     var body: some View {
+
         TextField(
             "",
             text: $text,
             prompt: Text(placeholder)
-                .foregroundStyle(JourneyColor.textFieldPlaceholder)
+                .foregroundStyle(
+                    JourneyColor.textFieldPlaceholder
+                )
         )
         .font(JourneyFont.textField)
         .foregroundStyle(JourneyColor.text)
-        .tint(JourneyColor.textFieldCursor)
+        .tint(JourneyColor.orange)
         .padding(.horizontal, 16)
         .frame(height: 48)
-        .background(JourneyColor.surface)
+        .background(
+            JourneyColor.surface,
+            in: RoundedRectangle(cornerRadius: 14)
+        )
     }
 }
 
@@ -175,12 +187,16 @@ struct JourneyUnderlinedTextField: View {
     @Binding var text: String
 
     var body: some View {
+
         VStack(spacing: 0) {
+
             TextField(
                 "",
                 text: $text,
                 prompt: Text(placeholder)
-                    .foregroundStyle(JourneyColor.secondaryText)
+                    .foregroundStyle(
+                        JourneyColor.secondaryText
+                    )
             )
             .font(JourneyFont.textField)
             .foregroundStyle(JourneyColor.text)
@@ -209,35 +225,24 @@ struct JourneyToolbarCircle: View {
     var style: JourneyToolbarStyle = .darkTinted
     var size: CGFloat = 120
 
-    private var borderOpacity: Double {
+    private var tintColor: Color {
+
         switch style {
-        case .lightTinted:
-            0.40
-        case .darkTinted:
-            0.70
+        case .lightTinted, .darkTinted:
+            return JourneyColor.primary
         case .dark:
-            0.10
+            return JourneyColor.darkCircle
         }
     }
 
     var body: some View {
+
         Circle()
-            .fill(
-                style == .dark
-                    ? JourneyColor.darkCircle
-                    : JourneyColor.primary
-            )
+            .fill(.clear)
             .frame(width: size, height: size)
-            .overlay {
-                Circle()
-                    .strokeBorder(
-                        Color.white.opacity(borderOpacity),
-                        lineWidth: 1
-                    )
-            }
-            .shadow(
-                color: JourneyColor.toolbarShadow,
-                radius: 5
+            .glassEffect(
+                .regular.tint(tintColor),
+                in: Circle()
             )
     }
 }
@@ -247,36 +252,26 @@ struct JourneyToolbarCircle: View {
 struct JourneyCircleIconButton: View {
 
     let symbol: String
+
     var color: Color = JourneyColor.darkCircle
     var symbolColor: Color = .white
     var size: CGFloat = 44
 
     var body: some View {
-        if #available(iOS 26.0, *) {
-            iconLabel
-                .glassEffect(
-                    .regular.tint(color.opacity(0.35)),
-                    in: .circle
-                )
-        } else {
-            iconLabel
-                .background(color, in: Circle())
-                .overlay {
-                    Circle()
-                        .strokeBorder(
-                            Color.white.opacity(0.15),
-                            lineWidth: 1
-                        )
-                }
-        }
-    }
 
-    private var iconLabel: some View {
         Image(systemName: symbol)
-            .font(.system(size: 20, weight: .medium))
+            .font(
+                .system(size: 20, weight: .medium)
+            )
             .foregroundStyle(symbolColor)
             .frame(width: size, height: size)
             .contentShape(Circle())
+            .glassEffect(
+                .regular
+                    .tint(color.opacity(0.35))
+                    .interactive(),
+                in: Circle()
+            )
     }
 }
 
@@ -290,6 +285,7 @@ struct JourneyToolbarTitle: View {
     var subtitleFont: Font = JourneyFont.subtitle
 
     var body: some View {
+
         VStack(alignment: .leading, spacing: 4) {
 
             Text(title)
@@ -298,7 +294,9 @@ struct JourneyToolbarTitle: View {
 
             Text(subtitle)
                 .font(subtitleFont)
-                .foregroundStyle(JourneyColor.toolbarSubtitle)
+                .foregroundStyle(
+                    JourneyColor.toolbarSubtitle
+                )
         }
     }
 }
@@ -308,13 +306,16 @@ struct JourneyToolbarTitle: View {
 struct JourneyNavigationBar: View {
 
     let title: String
+
     var onBack: () -> Void
     var onConfirm: (() -> Void)? = nil
 
     var body: some View {
+
         HStack {
 
             Button(action: onBack) {
+
                 JourneyCircleIconButton(
                     symbol: "chevron.left"
                 )
@@ -330,14 +331,18 @@ struct JourneyNavigationBar: View {
             Spacer()
 
             if let onConfirm {
+
                 Button(action: onConfirm) {
+
                     JourneyCircleIconButton(
                         symbol: "checkmark",
                         color: JourneyColor.orange
                     )
                 }
                 .buttonStyle(.plain)
+
             } else {
+
                 Color.clear
                     .frame(width: 44, height: 44)
             }
@@ -350,6 +355,7 @@ struct JourneyNavigationBar: View {
 struct JourneyFlame: View {
 
     var body: some View {
+
         Image(systemName: "flame.fill")
             .font(JourneyFont.flame)
             .foregroundStyle(JourneyColor.orange)
@@ -369,25 +375,27 @@ enum JourneyAlertButtonStyle {
 struct JourneyAlertButton: View {
 
     let title: String
+
     var style: JourneyAlertButtonStyle = .primary
     var tint: Color = JourneyColor.primary
 
-    private var backgroundColor: Color {
-        switch style {
-        case .primary:
-            tint
-        case .secondary:
-            JourneyColor.alertSecondary
-        }
-    }
-
     var body: some View {
+
         Text(title)
             .font(JourneyFont.alertLabel)
             .foregroundStyle(JourneyColor.text)
             .frame(maxWidth: .infinity)
             .frame(height: 48)
-            .background(backgroundColor, in: Capsule())
+            .glassEffect(
+                .regular
+                    .tint(
+                        style == .primary
+                            ? tint
+                            : JourneyColor.alertSecondary
+                    )
+                    .interactive(),
+                in: Capsule()
+            )
     }
 }
 
@@ -406,29 +414,30 @@ struct JourneyAlert: View {
     let onSecondary: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
+
+        VStack(alignment: .leading, spacing: 16) {
 
             VStack(alignment: .leading, spacing: 10) {
 
                 Text(title)
                     .font(JourneyFont.alertLabel)
                     .foregroundStyle(JourneyColor.text)
-                    .frame(height: 22, alignment: .leading)
 
                 Text(message)
                     .font(JourneyFont.body)
-                    .foregroundStyle(JourneyColor.secondaryText)
-                    .frame(height: 44, alignment: .topLeading)
+                    .foregroundStyle(
+                        JourneyColor.secondaryText
+                    )
+                    .fixedSize(
+                        horizontal: false,
+                        vertical: true
+                    )
             }
-            .frame(width: 256, alignment: .leading)
-            .padding(.leading, 8)
-            .padding(.top, 8)
-
-            Spacer(minLength: 16)
 
             HStack(spacing: 8) {
 
                 Button(action: onSecondary) {
+
                     JourneyAlertButton(
                         title: secondaryTitle,
                         style: .secondary
@@ -436,6 +445,7 @@ struct JourneyAlert: View {
                 }
 
                 Button(action: onPrimary) {
+
                     JourneyAlertButton(
                         title: primaryTitle,
                         style: .primary,
@@ -445,23 +455,11 @@ struct JourneyAlert: View {
             }
             .buttonStyle(.plain)
         }
-        .padding(14)
-        .frame(width: 300, height: 184)
-        .background {
-            RoundedRectangle(cornerRadius: 34)
-                .fill(.ultraThinMaterial)
-                .overlay {
-                    RoundedRectangle(cornerRadius: 34)
-                        .fill(
-                            JourneyColor.alertBase.opacity(0.40)
-                        )
-                }
-        }
-        .shadow(
-            color: .black.opacity(0.16),
-            radius: 25,
-            x: 0,
-            y: 2
+        .padding(20)
+        .frame(width: 300)
+        .glassEffect(
+            .regular,
+            in: RoundedRectangle(cornerRadius: 34)
         )
     }
 }
