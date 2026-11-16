@@ -12,6 +12,7 @@
   },
   "files": [
     { "kind": "folder", "path": "LearningJourney", "target-membership": [ "LearningJourney" ] },
+    { "path": "JourneyTesting.swift", "target-membership": [ "LearningJourney/compile-sources" ] },
     {
       "kind": "group",
       "name": "Products",
