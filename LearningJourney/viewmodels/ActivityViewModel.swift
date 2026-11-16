@@ -84,6 +84,10 @@ final class ActivityViewModel: ObservableObject {
         }
     }
 
+    var remainingFreezes: Int {
+        max(0, freezeLimit - frozenDays)
+    }
+
     // MARK: - Today's Status
 
     var todayStatus: LearningDayStatus? {
@@ -95,7 +99,7 @@ final class ActivityViewModel: ObservableObject {
     }
 
     var canFreezeToday: Bool {
-        canLogToday && frozenDays < freezeLimit
+        canLogToday && remainingFreezes > 0
     }
 
     // MARK: - Goal Records
@@ -105,6 +109,13 @@ final class ActivityViewModel: ObservableObject {
         records.filter {
             $0.date >= goalStartDate &&
             $0.date < goalEndDate
+        }
+    }
+
+    private var sortedGoalRecords: [LearningDayRecord] {
+
+        goalRecords.sorted {
+            $0.date < $1.date
         }
     }
 
@@ -124,13 +135,7 @@ final class ActivityViewModel: ObservableObject {
         }.count
     }
 
-    var remainingFreezes: Int {
-        max(0, freezeLimit - frozenDays)
-    }
-
     // MARK: - Goal Completion
-
-    // Total calendar days in this goal period.
 
     var totalGoalDays: Int {
 
@@ -141,19 +146,71 @@ final class ActivityViewModel: ObservableObject {
         ).day ?? 0
     }
 
-    // Every used Freeze substitutes for one learning day.
+    // Freeze substitutes for a required learning day.
 
     var requiredLearnedDays: Int {
         max(0, totalGoalDays - frozenDays)
     }
 
-    // Count only days actually learned.
+    // Each day must be covered by Learned or Freeze.
 
-    var isGoalCompleted: Bool {
-        learnedDays >= requiredLearnedDays
+    var coveredDays: Int {
+        learnedDays + frozenDays
     }
 
-    // Show the result only after the goal period ends.
+    // MARK: - Permanent Goal Streak Failure
+
+    var isGoalStreakBroken: Bool {
+
+        // The first deadline begins when the goal
+        // is created, not at midnight.
+
+        var previousActivityDate = goal.createdAt
+
+        // Check every recorded action in chronological order.
+        // A past gap cannot be repaired by later activity.
+
+        for record in sortedGoalRecords {
+
+            let elapsed = record.date.timeIntervalSince(
+                previousActivityDate
+            )
+
+            if elapsed > streakTimeLimit {
+                return true
+            }
+
+            previousActivityDate = record.date
+        }
+
+        // Once the goal ends, stop measuring inactivity
+        // for this goal. Otherwise, an old completed goal
+        // could incorrectly fail days later.
+
+        let evaluationDate = min(
+            today,
+            goalEndDate
+        )
+
+        let inactivity = evaluationDate.timeIntervalSince(
+            previousActivityDate
+        )
+
+        return inactivity > streakTimeLimit
+    }
+
+    // Goal success requires both:
+    // 1. Every calendar day covered.
+    // 2. No 32-hour streak break during the goal.
+
+    var isGoalCompleted: Bool {
+
+        coveredDays == totalGoalDays &&
+        frozenDays <= freezeLimit &&
+        !isGoalStreakBroken
+    }
+
+    // MARK: - Goal Result
 
     var shouldShowGoalResult: Bool {
 
@@ -162,54 +219,57 @@ final class ActivityViewModel: ObservableObject {
         return currentDay >= goalEndDate
     }
 
-    // MARK: - Streak
+    // MARK: - Current Streak
 
     var currentStreak: Int {
 
-        let sortedRecords = goalRecords.sorted {
-            $0.date < $1.date
-        }
+        let sortedRecords = sortedGoalRecords
 
         guard let lastRecord = sortedRecords.last else {
             return 0
         }
 
-        // More than 32 hours without learning or freezing
-        // breaks the streak.
+        // The current streak also expires after
+        // more than 32 hours of inactivity.
 
-        if today.timeIntervalSince(lastRecord.date) > streakTimeLimit {
+        if today.timeIntervalSince(lastRecord.date) >
+            streakTimeLimit {
             return 0
         }
 
         var streak = 0
-        var previousDate: Date?
+
+        // First activity is measured from goal creation.
+
+        var previousActivityDate = goal.createdAt
 
         for record in sortedRecords {
 
-            if let previousDate {
+            let elapsed = record.date.timeIntervalSince(
+                previousActivityDate
+            )
 
-                let elapsed = record.date.timeIntervalSince(
-                    previousDate
-                )
+            if elapsed > streakTimeLimit {
 
-                if elapsed > streakTimeLimit {
-                    streak = 0
-                }
+                // A new streak can start, but the goal
+                // remains permanently failed.
+
+                streak = 0
             }
 
             switch record.status {
 
             case .learned:
-                // Actual learning increases the streak.
+                // Learning increases the current streak.
                 streak += 1
 
             case .frozen:
-                // A Freeze preserves the current streak,
-                // but does not add a Learned day.
+                // Freeze protects the streak without
+                // increasing the number of Learned days.
                 break
             }
 
-            previousDate = record.date
+            previousActivityDate = record.date
         }
 
         return streak
@@ -227,25 +287,23 @@ final class ActivityViewModel: ObservableObject {
 
     private func record(_ status: LearningDayStatus) {
 
-        // Refresh the current date and time.
+        // Use the current real date and time.
 
         today = Date()
 
-        // Only one action is allowed per calendar day.
+        // One action per calendar day.
 
         guard canLogToday else {
             return
         }
 
-        // Verify that the user has Freezes remaining.
+        // Freezes cannot exceed the allowance.
 
         if status == .frozen {
             guard canFreezeToday else {
                 return
             }
         }
-
-        // Save the actual timestamp.
 
         let newRecord = LearningDayRecord(
             date: today,
@@ -254,14 +312,17 @@ final class ActivityViewModel: ObservableObject {
 
         records.append(newRecord)
 
-        storage.save(records, for: goal.id)
+        storage.save(
+            records,
+            for: goal.id
+        )
     }
 
     // MARK: - Calendar Status
 
     func status(for date: Date) -> LearningDayStatus? {
 
-        records.first {
+        goalRecords.first {
             calendar.isDate(
                 $0.date,
                 inSameDayAs: date
@@ -331,7 +392,7 @@ final class ActivityViewModel: ObservableObject {
 
     func refreshDay() {
 
-        // Refresh both midnight availability
+        // Refresh midnight availability
         // and the 32-hour streak deadline.
 
         today = Date()
