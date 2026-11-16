@@ -59,12 +59,19 @@ final class ActivityViewModel: ObservableObject {
         }
     }
 
+    // MARK: - Goal State
+
     var goalIsActive: Bool {
 
         let currentDay = calendar.startOfDay(for: today)
 
-        return currentDay >= goalStartDate &&
-               currentDay < goalEndDate
+        let isWithinDuration =
+            currentDay >= goalStartDate &&
+            currentDay < goalEndDate
+
+        // A broken streak immediately ends the goal.
+
+        return isWithinDuration && !isGoalStreakBroken
     }
 
     // MARK: - Freeze Limits
@@ -84,6 +91,10 @@ final class ActivityViewModel: ObservableObject {
         }
     }
 
+    var remainingFreezes: Int {
+        max(0, freezeLimit - frozenDays)
+    }
+
     // MARK: - Today's Status
 
     var todayStatus: LearningDayStatus? {
@@ -91,11 +102,15 @@ final class ActivityViewModel: ObservableObject {
     }
 
     var canLogToday: Bool {
-        goalIsActive && todayStatus == nil
+
+        goalIsActive &&
+        todayStatus == nil
     }
 
     var canFreezeToday: Bool {
-        canLogToday && frozenDays < freezeLimit
+
+        canLogToday &&
+        remainingFreezes > 0
     }
 
     // MARK: - Goal Records
@@ -103,8 +118,15 @@ final class ActivityViewModel: ObservableObject {
     private var goalRecords: [LearningDayRecord] {
 
         records.filter {
-            $0.date >= goalStartDate &&
+            $0.date >= goal.createdAt &&
             $0.date < goalEndDate
+        }
+    }
+
+    private var sortedGoalRecords: [LearningDayRecord] {
+
+        goalRecords.sorted {
+            $0.date < $1.date
         }
     }
 
@@ -124,13 +146,11 @@ final class ActivityViewModel: ObservableObject {
         }.count
     }
 
-    var remainingFreezes: Int {
-        max(0, freezeLimit - frozenDays)
+    var coveredDays: Int {
+        learnedDays + frozenDays
     }
 
     // MARK: - Goal Completion
-
-    // Total calendar days in this goal period.
 
     var totalGoalDays: Int {
 
@@ -141,75 +161,128 @@ final class ActivityViewModel: ObservableObject {
         ).day ?? 0
     }
 
-    // Every used Freeze substitutes for one learning day.
+    // Each Freeze replaces one required
+    // learning day.
 
     var requiredLearnedDays: Int {
-        max(0, totalGoalDays - frozenDays)
+
+        max(
+            0,
+            totalGoalDays - frozenDays
+        )
     }
 
-    // Count only days actually learned.
+    // A successful goal requires:
+    // 1. Every calendar day to be covered.
+    // 2. Freeze usage within its limit.
+    // 3. No broken 32-hour streak.
 
     var isGoalCompleted: Bool {
-        learnedDays >= requiredLearnedDays
+
+        guard shouldShowGoalResult else {
+            return false
+        }
+
+        return coveredDays == totalGoalDays &&
+               learnedDays >= requiredLearnedDays &&
+               frozenDays <= freezeLimit &&
+               !isGoalStreakBroken
     }
 
-    // Show the result only after the goal period ends.
+    // MARK: - Permanent Streak Failure
+
+    var isGoalStreakBroken: Bool {
+
+        // The first countdown starts when
+        // the goal is created.
+
+        var previousActivityDate = goal.createdAt
+
+        // Check every saved activity in order.
+        // Any past gap over 32 hours permanently
+        // fails the current goal.
+
+        for record in sortedGoalRecords {
+
+            let elapsed = record.date.timeIntervalSince(
+                previousActivityDate
+            )
+
+            if elapsed > streakTimeLimit {
+                return true
+            }
+
+            previousActivityDate = record.date
+        }
+
+        // Do not continue counting inactivity
+        // beyond the goal's scheduled end date.
+
+        let evaluationDate = min(
+            today,
+            goalEndDate
+        )
+
+        let inactivity = evaluationDate.timeIntervalSince(
+            previousActivityDate
+        )
+
+        return inactivity > streakTimeLimit
+    }
+
+    // MARK: - Goal Result
 
     var shouldShowGoalResult: Bool {
 
-        let currentDay = calendar.startOfDay(for: today)
+        let hasReachedEnd = today >= goalEndDate
 
-        return currentDay >= goalEndDate
+        // Show the result at the scheduled end
+        // OR immediately when the streak breaks.
+
+        return hasReachedEnd || isGoalStreakBroken
     }
 
-    // MARK: - Streak
+    // MARK: - Current Streak
 
     var currentStreak: Int {
 
-        let sortedRecords = goalRecords.sorted {
-            $0.date < $1.date
+        // Once a goal has failed, its
+        // active streak is finished.
+
+        guard !isGoalStreakBroken else {
+            return 0
         }
+
+        let sortedRecords = sortedGoalRecords
 
         guard let lastRecord = sortedRecords.last else {
             return 0
         }
 
-        // More than 32 hours without learning or freezing
-        // breaks the streak.
+        let evaluationDate = min(
+            today,
+            goalEndDate
+        )
 
-        if today.timeIntervalSince(lastRecord.date) > streakTimeLimit {
+        if evaluationDate.timeIntervalSince(lastRecord.date)
+            > streakTimeLimit {
             return 0
         }
 
         var streak = 0
-        var previousDate: Date?
 
         for record in sortedRecords {
-
-            if let previousDate {
-
-                let elapsed = record.date.timeIntervalSince(
-                    previousDate
-                )
-
-                if elapsed > streakTimeLimit {
-                    streak = 0
-                }
-            }
 
             switch record.status {
 
             case .learned:
-                // Actual learning increases the streak.
                 streak += 1
 
             case .frozen:
-                // A Freeze preserves the current streak,
-                // but does not add a Learned day.
+                // Freeze protects the streak,
+                // but does not increase it.
                 break
             }
-
-            previousDate = record.date
         }
 
         return streak
@@ -227,25 +300,27 @@ final class ActivityViewModel: ObservableObject {
 
     private func record(_ status: LearningDayStatus) {
 
-        // Refresh the current date and time.
+        // Refresh the current timestamp
+        // before checking eligibility.
 
         today = Date()
 
-        // Only one action is allowed per calendar day.
+        // Prevent any logging after
+        // the goal has failed or expired.
 
         guard canLogToday else {
             return
         }
 
-        // Verify that the user has Freezes remaining.
+        // Freeze can only be used when
+        // there are remaining Freezes.
 
         if status == .frozen {
+
             guard canFreezeToday else {
                 return
             }
         }
-
-        // Save the actual timestamp.
 
         let newRecord = LearningDayRecord(
             date: today,
@@ -254,14 +329,19 @@ final class ActivityViewModel: ObservableObject {
 
         records.append(newRecord)
 
-        storage.save(records, for: goal.id)
+        // Save without removing previous records.
+
+        storage.save(
+            records,
+            for: goal.id
+        )
     }
 
     // MARK: - Calendar Status
 
     func status(for date: Date) -> LearningDayStatus? {
 
-        records.first {
+        goalRecords.first {
             calendar.isDate(
                 $0.date,
                 inSameDayAs: date
@@ -280,7 +360,7 @@ final class ActivityViewModel: ObservableObject {
 
         let start = calendar.startOfDay(for: today)
 
-        // Sunday is the first day of the week.
+        // Sunday is the first weekday.
 
         guard let firstDay = calendar.date(
             byAdding: .day,
@@ -291,6 +371,7 @@ final class ActivityViewModel: ObservableObject {
         }
 
         return (0..<7).compactMap { offset in
+
             calendar.date(
                 byAdding: .day,
                 value: offset,
@@ -331,8 +412,9 @@ final class ActivityViewModel: ObservableObject {
 
     func refreshDay() {
 
-        // Refresh both midnight availability
-        // and the 32-hour streak deadline.
+        // Update the real time.
+        // This also lets the UI detect
+        // when the 32-hour limit is exceeded.
 
         today = Date()
     }
