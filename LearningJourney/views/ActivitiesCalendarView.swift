@@ -16,19 +16,38 @@ struct ActivitiesCalendarView: View {
         "THU", "FRI", "SAT"
     ]
 
+    // MARK: - Journey Start
+
+    private var journeyStartDate: Date {
+
+        // Use the earliest saved activity, including
+        // activities belonging to previous goals.
+
+        guard let earliestRecord = records.min(
+            by: { $0.date < $1.date }
+        ) else {
+            return goal.createdAt
+        }
+
+        return min(
+            earliestRecord.date,
+            goal.createdAt
+        )
+    }
+
     // MARK: - Calendar Months
 
     private var months: [Date] {
 
-        // Start from the month the goal was created.
         guard let firstMonth = calendar.dateInterval(
             of: .month,
-            for: goal.createdAt
+            for: journeyStartDate
         )?.start else {
             return []
         }
 
-        // Show through December of next year.
+        // Continue through December of next year.
+
         let currentYear = calendar.component(
             .year,
             from: Date()
@@ -69,7 +88,10 @@ struct ActivitiesCalendarView: View {
 
     private func style(for date: Date) -> JourneyDayStyle {
 
-        if let record = records.first(where: {
+        // Check all saved goals, regardless of whether
+        // their results were completed or unsuccessful.
+
+        if let record = records.last(where: {
             calendar.isDate(
                 $0.date,
                 inSameDayAs: date
@@ -106,6 +128,7 @@ struct ActivitiesCalendarView: View {
                 Button {
                     dismiss()
                 } label: {
+
                     JourneyCircleIconButton(
                         symbol: "chevron.left"
                     )
@@ -152,11 +175,12 @@ struct ActivitiesCalendarView: View {
         }
         .background(JourneyColor.background)
         .navigationBarBackButtonHidden()
-        .onAppear {
 
-            records = LearningRecordStorage().load(
-                for: goal.id
-            )
+        // MARK: - Load History
+
+        .onAppear {
+            records = LearningRecordStorage()
+                .loadAllRecords()
         }
     }
 
@@ -166,8 +190,6 @@ struct ActivitiesCalendarView: View {
 
         VStack(alignment: .leading, spacing: 12) {
 
-            // Month and year
-
             Text(
                 month.formatted(
                     .dateTime.month(.wide).year()
@@ -176,7 +198,7 @@ struct ActivitiesCalendarView: View {
             .font(JourneyFont.buttonLabel)
             .foregroundStyle(JourneyColor.text)
 
-            // Weekday labels
+            // MARK: - Weekdays
 
             HStack(spacing: 0) {
 
@@ -199,8 +221,6 @@ struct ActivitiesCalendarView: View {
                 }
             }
 
-            // Month dates
-
             monthGrid(month)
         }
     }
@@ -214,7 +234,8 @@ struct ActivitiesCalendarView: View {
             from: month
         )
 
-        // Sunday-first calendar
+        // Sunday is the first weekday.
+
         let leadingSpaces = firstWeekday - 1
 
         let numberOfDays = calendar.range(
@@ -259,9 +280,13 @@ struct ActivitiesCalendarView: View {
                     ) {
 
                         if calendar.startOfDay(for: date) <
-                            calendar.startOfDay(for: goal.createdAt) {
+                            calendar.startOfDay(
+                                for: journeyStartDate
+                            ) {
 
-                            // Hide dates before learning began.
+                            // Before the first known
+                            // learning activity.
+
                             Color.clear
                                 .frame(height: 44)
 
@@ -281,7 +306,9 @@ struct ActivitiesCalendarView: View {
 }
 
 #Preview {
+
     NavigationStack {
+
         ActivitiesCalendarView(
             goal: LearningGoal(
                 topic: "Swift",
