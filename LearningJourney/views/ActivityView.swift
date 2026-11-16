@@ -134,22 +134,22 @@ struct ActivityView: View {
                                 isCompleted: viewModel.isGoalCompleted
                             )
 
+                            
                             Button(action: onSetGoal) {
 
                                 Label(
-                                    "Set a goal",
+                                    "Set a new goal",
                                     systemImage: "scope"
                                 )
                                 .font(JourneyFont.buttonLabel)
                                 .foregroundStyle(JourneyColor.text)
+                                .padding(.horizontal, 24)
                                 .frame(height: 50)
-                                .padding(.horizontal, 18)
-                                .background(
-                                    JourneyColor.orange,
-                                    in: Capsule()
-                                )
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(.glassProminent)
+                            .tint(JourneyColor.orange)
+                            .buttonBorderShape(.capsule)
+
                         }
                         .frame(maxWidth: .infinity)
                     }
