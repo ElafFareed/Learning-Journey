@@ -108,8 +108,9 @@ struct JourneyFreezeButton: View {
 
         Text(
             isFrozen
-                ? "Frozen for a day"
-                : "Freeze for a day"
+                
+            ? "Freezed for a day"
+            : "Freeze for a day"
         )
         .font(JourneyFont.buttonLabel)
         .foregroundStyle(

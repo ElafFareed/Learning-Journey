@@ -298,44 +298,30 @@ final class ActivityViewModel: ObservableObject {
         record(.frozen)
     }
 
+    
     private func record(_ status: LearningDayStatus) {
-
-        // Refresh the current timestamp
-        // before checking eligibility.
 
         today = Date()
 
-        // Prevent any logging after
-        // the goal has failed or expired.
+        switch status {
 
-        guard canLogToday else {
-            return
+        case .learned:
+            guard canLogToday else { return }
+
+        case .frozen:
+            guard canFreezeToday else { return }
         }
 
-        // Freeze can only be used when
-        // there are remaining Freezes.
-
-        if status == .frozen {
-
-            guard canFreezeToday else {
-                return
-            }
-        }
-
-        let newRecord = LearningDayRecord(
-            date: today,
-            status: status
+        records.append(
+            LearningDayRecord(
+                date: today,
+                status: status
+            )
         )
 
-        records.append(newRecord)
-
-        // Save without removing previous records.
-
-        storage.save(
-            records,
-            for: goal.id
-        )
+        storage.save(records, for: goal.id)
     }
+
 
     // MARK: - Calendar Status
 
