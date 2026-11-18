@@ -77,21 +77,18 @@ struct EditGoalView: View {
         .background(JourneyColor.background)
         .navigationBarBackButtonHidden()
 
-        // MARK: - Native Update Confirmation
+        // MARK: - Custom Liquid Glass Confirmation
+        .alert("Update goal", isPresented: $showUpdateAlert) {
 
-        .alert(
-            "Update goal",
-            isPresented: $showUpdateAlert
-        ) {
             Button("Dismiss", role: .cancel) {}
 
             Button("Update") {
                 updateGoal()
             }
+            .keyboardShortcut(.defaultAction)
+
         } message: {
-            Text(
-                "If you update now, your streak will start over."
-            )
+            Text("If you update now, your streak will start over.")
         }
     }
 
