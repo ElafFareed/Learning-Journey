@@ -144,8 +144,8 @@ struct ActivityView: View {
                             Button(action: onSetGoal) {
 
                                 Label(
-                                    "Set a new goal",
-                                    systemImage: "scope"
+                                    "Set a goal",
+                                    systemImage: "pencil.and.outline"
                                 )
                                 .font(JourneyFont.buttonLabel)
                                 .foregroundStyle(JourneyColor.text)

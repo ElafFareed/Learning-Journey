@@ -513,7 +513,7 @@ struct JourneyTesting: View {
                             isCompleted: isCompleted
                         )
 
-                        Button("Set a new goal") {
+                        Button("Set a goal") {
 
                             reset()
 
